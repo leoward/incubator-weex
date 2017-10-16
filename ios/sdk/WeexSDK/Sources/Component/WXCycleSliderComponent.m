@@ -80,10 +80,45 @@ typedef NS_ENUM(NSInteger, Direction) {
     return self;
 }
 
+- (void)dealloc
+{
+    if (_scrollView) {
+        _scrollView.delegate = nil;
+    }
+}
+
 - (void)layoutSubviews
 {
     [super layoutSubviews];
     [self resetAllViewsFrame];
+}
+
+- (void)accessibilityDecrement
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    [self.wx_component performSelector:NSSelectorFromString(@"resumeAutoPlay:") withObject:@(false)];
+#pragma clang diagnostic pop
+    
+    [self nextPage];
+}
+
+- (void)accessibilityIncrement
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    [self.wx_component performSelector:NSSelectorFromString(@"resumeAutoPlay:") withObject:@(false)];
+#pragma clang diagnostic pop
+    
+    [self lastPage];
+}
+
+- (void)accessibilityElementDidLoseFocus
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    [self.wx_component performSelector:NSSelectorFromString(@"resumeAutoPlay:") withObject:@(true)];
+#pragma clang diagnostic pop
 }
 
 #pragma mark Private Methods
@@ -209,11 +244,26 @@ typedef NS_ENUM(NSInteger, Direction) {
         if (_infinite) {
             [self.scrollView setContentOffset:CGPointMake(self.width * 2, 0) animated:YES];
         } else {
-            _currentIndex += 1;
-            if (_currentIndex - 1 < _itemViews.count) {
-                [self.scrollView setContentOffset:CGPointMake(_currentIndex * self.width, 0) animated:YES];
+            // the currentindex will be set at the end of animation
+            NSInteger nextIndex = self.currentIndex + 1;
+            if(nextIndex < _itemViews.count) {
+                [self.scrollView setContentOffset:CGPointMake(nextIndex * self.width, 0) animated:YES];
             }
         }
+    }
+}
+
+- (void)lastPage
+{
+    
+    NSInteger lastIndex = [self currentIndex]-1;
+    if (_itemViews.count > 1) {
+        if (_infinite) {
+            if (lastIndex < 0) {
+                lastIndex = [_itemViews count]-1;
+            }
+        }
+        [self setCurrentIndex:lastIndex];
     }
 }
 
@@ -391,11 +441,14 @@ typedef NS_ENUM(NSInteger, Direction) {
     _recycleSliderView.exclusiveTouch = YES;
     _recycleSliderView.scrollView.scrollEnabled = _scrollable;
     _recycleSliderView.infinite = _infinite;
+    UIAccessibilityTraits traits = UIAccessibilityTraitAdjustable;
     if (_autoPlay) {
+        traits |= UIAccessibilityTraitUpdatesFrequently;
         [self _startAutoPlayTimer];
     } else {
         [self _stopAutoPlayTimer];
     }
+     _recycleSliderView.accessibilityTraits = traits;
 }
 
 - (void)layoutDidFinish
@@ -452,6 +505,12 @@ typedef NS_ENUM(NSInteger, Direction) {
                 }
             }
             [recycleSliderView insertItemView:view atIndex:index - offset];
+            
+            // check if should apply current contentOffset
+            // in case inserting subviews after layoutDidFinish
+            if (index-offset == _index && _index>0) {
+                recycleSliderView.currentIndex = _index;
+            }
         }
         [recycleSliderView layoutSubviews];
     }
@@ -537,6 +596,17 @@ typedef NS_ENUM(NSInteger, Direction) {
     [_recycleSliderView setIndicator:indicatorView];
 }
 
+- (void)resumeAutoPlay:(id)resume
+{
+    if (_autoPlay) {
+        if ([resume boolValue]) {
+            [self _startAutoPlayTimer];
+        } else {
+            [self _stopAutoPlayTimer];
+        }
+    }
+}
+
 #pragma mark Private Methods
 
 - (void)_startAutoPlayTimer
@@ -592,8 +662,8 @@ typedef NS_ENUM(NSInteger, Direction) {
     
     if (_sliderChangeEvent) {
         [self fireEvent:@"change" params:@{@"index":@(index)} domChanges:@{@"attrs": @{@"index": @(index)}}];
-        self.currentIndex = index;
     }
+    self.currentIndex = index;
 }
 
 - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView

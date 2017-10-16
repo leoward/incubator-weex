@@ -27,7 +27,7 @@
 #import "DemoDefine.h"
 #import "WXPrerenderManager.h"
 #import "WXMonitor.h"
-
+#import "WXTracingManager.h"
 
 @interface WXDemoViewController () <UIScrollViewDelegate, UIWebViewDelegate>
 @property (nonatomic, strong) WXSDKInstance *instance;
@@ -72,7 +72,6 @@
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
-    [_instance fireGlobalEvent:WX_APPLICATION_DID_BECOME_ACTIVE params:nil];
     [self updateInstanceState:WeexInstanceAppear];
 }
 
@@ -86,11 +85,6 @@
 {
     [super viewWillAppear:animated];
     self.navigationController.navigationBarHidden = NO;
-}
-
-- (void)viewWillDisappear:(BOOL)animated
-{
-    [_instance fireGlobalEvent:WX_APPLICATION_WILL_RESIGN_ACTIVE params:nil];
 }
 
 //TODO get height
@@ -135,7 +129,6 @@
         UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, weakSelf.weexView);
     };
     _instance.onFailed = ^(NSError *error) {
-        #ifdef UITEST
         if ([[error domain] isEqualToString:@"1"]) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 NSMutableString *errMsg=[NSMutableString new];
@@ -147,7 +140,6 @@
                 [alertView show];
             });
         }
-        #endif
     };
     
     _instance.renderFinish = ^(UIView *view) {

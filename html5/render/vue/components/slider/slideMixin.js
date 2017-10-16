@@ -17,18 +17,6 @@
  * under the License.
  */
 import './slider.css'
-import {
-  throttle,
-  extend,
-  createEvent,
-  fireLazyload,
-  addTransform,
-  copyTransform,
-  getTransformObj,
-  bind,
-  extendKeys
-} from '../../utils'
-import { extractComponentStyle, createEventMap } from '../../core'
 
 const TRANSITION_TIME = 400
 const NEIGHBOR_SCALE_TIME = 100
@@ -48,18 +36,19 @@ export default {
   },
 
   updated () {
-    this._startAutoPlay()
     const children = this.$children
     const len = children && children.length
     if (children && len > 0) {
-      const indicator = children[len - 1]
-      if (indicator.$options._componentTag === 'indicator'
-        || indicator.$vnode.data.ref === 'indicator') {
-        indicator._watcher.get()
+      for (let i = 0; i < len; i++) {
+        const vm = children[i]
+        if (vm.$options._componentTag === 'indicator'
+          || vm.$vnode.data.ref === 'indicator') {
+          vm._watcher.get()
+          break
+        }
       }
     }
-    fireLazyload(this.$el, true)
-    this._preIndex = this._showNodes[0].index
+    weex.utils.fireLazyload(this.$el, true)
     if (this._preIndex !== this.currentIndex) {
       this._slideTo(this.currentIndex)
     }
@@ -67,9 +56,8 @@ export default {
 
   mounted () {
     this._getWrapperSize()
-    this._startAutoPlay()
     this._slideTo(this.currentIndex)
-    fireLazyload(this.$el, true)
+    weex.utils.fireLazyload(this.$el, true)
   },
 
   methods: {
@@ -77,8 +65,8 @@ export default {
       const wrapper = this.$refs.wrapper
       if (wrapper) {
         const rect = wrapper.getBoundingClientRect()
-        this.wrapperWidth = rect.width
-        this.wrapperHeight = rect.height
+        this._wrapperWidth = rect.width
+        this._wrapperHeight = rect.height
       }
     },
 
@@ -110,20 +98,23 @@ export default {
     _renderSlides (createElement) {
       this._cells = this._formatChildren(createElement)
       this.frameCount = this._cells.length
-      this._renderHook()
       return createElement(
         'nav',
         {
           ref: 'wrapper',
           attrs: { 'weex-type': this.isNeighbor ? 'slider-neighbor' : 'slider' },
-          on: extend(createEventMap(this, ['scroll', 'scrollstart', 'scrollend']), {
-            touchstart: this._handleTouchStart,
-            touchmove: throttle(bind(this._handleTouchMove, this), 25),
-            touchend: this._handleTouchEnd,
-            touchcancel: this._handleTouchCancel
-          }),
+          on: weex.createEventMap(
+            this,
+            ['scroll', 'scrollstart', 'scrollend'],
+            {
+              touchstart: this._handleTouchStart,
+              touchmove: weex.utils.throttle(weex.utils.bind(this._handleTouchMove, this), 25),
+              touchend: this._handleTouchEnd,
+              touchcancel: this._handleTouchCancel
+            }
+          ),
           staticClass: 'weex-slider weex-slider-wrapper weex-ct',
-          staticStyle: extractComponentStyle(this)
+          staticStyle: weex.extractComponentStyle(this)
         },
         [
           createElement('ul', {
@@ -151,7 +142,7 @@ export default {
       }
       let interval = parseInt(this.interval - TRANSITION_TIME - NEIGHBOR_SCALE_TIME)
       interval = interval > INTERVAL_MINIMUM ? interval : INTERVAL_MINIMUM
-      this._autoPlayTimer = setTimeout(bind(this._next, this), interval)
+      this._autoPlayTimer = setTimeout(weex.utils.bind(this._next, this), interval)
     },
 
     _stopAutoPlay () {
@@ -162,6 +153,9 @@ export default {
     },
 
     _slideTo (index, isTouchScroll) {
+      if (this.frameCount <= 0) {
+        return
+      }
       if (!this.infinite || this.infinite === 'false') {
         if (index === -1 || index > (this.frameCount - 1)) {
           this._slideTo(this.currentIndex)
@@ -189,15 +183,17 @@ export default {
 
       if (inner) {
         this._prepareNodes()
-        const translate = getTransformObj(inner).translate
+        const translate = weex.utils.getTransformObj(inner).translate
         const match = translate && translate.match(/translate[^(]+\(([+-\d.]+)/)
         const innerX = match && match[1] || 0
         const dist = innerX - this.innerOffset
-        this.innerOffset += step * this.wrapperWidth
+        this.innerOffset += step * this._wrapperWidth
         // transform the whole slides group.
         inner.style.webkitTransition = `-webkit-transform ${TRANSITION_TIME / 1000}s ease-in-out`
+        inner.style.mozTransition = `transform ${TRANSITION_TIME / 1000}s ease-in-out`
         inner.style.transition = `transform ${TRANSITION_TIME / 1000}s ease-in-out`
         inner.style.webkitTransform = `translate3d(${this.innerOffset}px, 0, 0)`
+        inner.style.mozTransform = `translate3d(${this.innerOffset}px, 0, 0)`
         inner.style.transform = `translate3d(${this.innerOffset}px, 0, 0)`
 
         // emit scroll events.
@@ -219,12 +215,14 @@ export default {
 
           setTimeout(() => {
             inner.style.webkitTransition = ''
+            inner.style.mozTransition = ''
             inner.style.transition = ''
             for (let i = this._showStartIdx; i <= this._showEndIdx; i++) {
               const node = this._showNodes[i]
               if (!node) { continue }
               const elm = node.firstElementChild
               elm.style.webkitTransition = ''
+              elm.style.mozTransition = ''
               elm.style.transition = ''
             }
             // clean cloned nodes and rearrange slide cells.
@@ -234,7 +232,7 @@ export default {
       }
 
       if (newIndex !== this._preIndex) {
-        this.$emit('change', createEvent(this.$el, 'change', {
+        this.$emit('change', weex.utils.createEvent(this.$el, 'change', {
           index: newIndex
         }))
       }
@@ -246,7 +244,7 @@ export default {
         let node = this._showNodes[i]
         node = node && node.firstElementChild
         if (!node) { continue }
-        addTransform(this._showNodes[i].firstElementChild, {
+        weex.utils.addTransform(this._showNodes[i].firstElementChild, {
           translate: 'translate3d(0px, 0px, 0px)'
         })
       }
@@ -336,8 +334,8 @@ export default {
       }
 
       node._inShow = true
-      const translateX = index * this.wrapperWidth - this.innerOffset
-      addTransform(node, {
+      const translateX = index * this._wrapperWidth - this.innerOffset
+      weex.utils.addTransform(node, {
         translate: `translate3d(${translateX}px, 0px, 0px)`
       })
       node.style.zIndex = 99 - Math.abs(index)
@@ -402,16 +400,16 @@ export default {
      * one element to another.
      */
     _copyStyle (from, to, styles = ['opacity', 'zIndex'], transformExtra = {}) {
-      extendKeys(to.style, from.style, styles)
-      const transObj = getTransformObj(from)
+      weex.utils.extendKeys(to.style, from.style, styles)
+      const transObj = weex.utils.getTransformObj(from)
       for (const k in transformExtra) {
         transObj[k] = transformExtra[k]
       }
-      addTransform(to, transObj)
+      weex.utils.addTransform(to, transObj)
       const fromInner = from.firstElementChild
       const toInner = to.firstElementChild
       toInner.style.opacity = fromInner.style.opacity
-      copyTransform(fromInner, toInner)
+      weex.utils.copyTransform(fromInner, toInner)
     },
 
     /**
@@ -432,9 +430,9 @@ export default {
         this._showNodes[origShowIndex] = cl
       }
       origNode._inShow = true
-      const transObj = getTransformObj(clone)
+      const transObj = weex.utils.getTransformObj(clone)
       transObj.translate = transObj.translate.replace(/[+-\d.]+[pw]x/, ($0) => {
-        return pos * this.wrapperWidth - this.innerOffset + 'px'
+        return pos * this._wrapperWidth - this.innerOffset + 'px'
       })
       this._copyStyle(clone, origNode, styleProps, transObj)
       this._removeClone(clone)
@@ -451,6 +449,10 @@ export default {
         this.currentIndex = 0
         return
       }
+
+      // clear autoPlay timer (and restart after updated hook).
+      this._startAutoPlay()
+
       /**
        * clean nodes. replace current node with non-cloned node.
        * set current index to the new index.
@@ -490,6 +492,7 @@ export default {
       for (let i = this._showStartIdx; i <= this._showEndIdx; i++) {
         const elm = this._showNodes[i].firstElementChild
         elm.style.webkitTransition = `all ${NEIGHBOR_SCALE_TIME / 1000}s ease`
+        elm.style.mozTransition = `all ${NEIGHBOR_SCALE_TIME / 1000}s ease`
         elm.style.transition = `all ${NEIGHBOR_SCALE_TIME / 1000}s ease`
         const transObj = {
           scale: `scale(${i === 0 ? this.currentItemScale : this.neighborScale})`
@@ -500,7 +503,7 @@ export default {
         }
         // calculate position offsets according to neighbor scales.
         if (Math.abs(i) === 1) {
-          const dist = ((this.wrapperWidth - this._neighborWidth * this.neighborScale) / 2
+          const dist = ((this._wrapperWidth - this._neighborWidth * this.neighborScale) / 2
             + this.neighborSpace * weex.config.env.scale) / this.neighborScale
           translateX = -i * dist
         }
@@ -509,7 +512,7 @@ export default {
           translateX = 0
         }
         transObj.translate = `translate3d(${translateX}px, 0px, 0px)`
-        addTransform(elm, transObj)
+        weex.utils.addTransform(elm, transObj)
         elm.style.opacity = i === 0 ? MAIN_SLIDE_OPACITY : this.neighborAlpha
       }
     },
@@ -533,8 +536,11 @@ export default {
     _handleTouchStart (event) {
       const touch = event.changedTouches[0]
       this._stopAutoPlay()
+      const inner = this.$refs.inner
       this._touchParams = {
-        originalTransform: this.$refs.inner.style.webkitTransform || this.$refs.inner.style.transform,
+        originalTransform: inner.style.webkitTransform
+          || inner.style.mozTransform
+          || inner.style.transform,
         startTouchEvent: touch,
         startX: touch.pageX,
         startY: touch.pageY,
@@ -577,10 +583,11 @@ export default {
           this._clearNodesOffset()
         }
         this._emitScrollEvent('scroll', {
-          offsetXRatio: offsetX / this.wrapperWidth
+          offsetXRatio: offsetX / this._wrapperWidth
         })
-        inner.style.transform = `translate3d(${this.innerOffset + offsetX}px, 0, 0)`
         inner.style.webkitTransform = `translate3d(${this.innerOffset + offsetX}px, 0, 0)`
+        inner.style.mozTransform = `translate3d(${this.innerOffset + offsetX}px, 0, 0)`
+        inner.style.transform = `translate3d(${this.innerOffset + offsetX}px, 0, 0)`
       }
     },
 
@@ -597,7 +604,7 @@ export default {
       if (inner) {
         this._nodesOffsetCleared = false
         // TODO: test the velocity if it's less than 0.2.
-        const reset = Math.abs(offsetX / this.wrapperWidth) < 0.2
+        const reset = Math.abs(offsetX / this._wrapperWidth) < 0.2
         const direction = offsetX > 0 ? 1 : -1
         const newIndex = reset ? this.currentIndex : (this.currentIndex - direction)
         this._slideTo(newIndex, true)
@@ -610,7 +617,7 @@ export default {
     },
 
     _emitScrollEvent (type, data = {}) {
-      this.$emit(type, createEvent(this.$el, type, data))
+      this.$emit(type, weex.utils.createEvent(this.$el, type, data))
     },
 
     _throttleEmitScroll (offset, callback) {
@@ -618,7 +625,7 @@ export default {
       const throttleTime = THROTTLE_SCROLL_TIME
       const cnt = parseInt(TRANSITION_TIME / throttleTime) - 1
       const sign = offset > 0 ? 1 : -1
-      const r = Math.abs(offset / this.wrapperWidth)
+      const r = Math.abs(offset / this._wrapperWidth)
       const throttledScroll = () => {
         if (++i > cnt) {
           return callback && callback.call(this)

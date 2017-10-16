@@ -17,6 +17,7 @@
  * under the License.
  */
 
+
 #import "WXComponent+Layout.h"
 #import "WXComponent_internal.h"
 #import "WXTransform.h"
@@ -24,6 +25,7 @@
 #import "WXComponent_internal.h"
 #import "WXSDKInstance_private.h"
 #import "WXComponent+BoxShadow.h"
+#import "WXLayoutDefine.h"
 
 @implementation WXComponent (Layout)
 
@@ -111,6 +113,7 @@
     return (int)(count);
 }
 
+
 - (void)_frameDidCalculated:(BOOL)isChanged
 {
     WXAssertComponentThread();
@@ -148,7 +151,6 @@
                 [strongSelf setGradientLayer];
             }
             [strongSelf setNeedsDisplay];
-            [strongSelf _configWXComponentA11yWithAttributes:nil];
         }];
     }
 }
@@ -184,8 +186,8 @@
     _cssNode->layout.position[CSS_TOP] = 0;
     
     [self _frameDidCalculated:isFrameChanged];
-    
-    for (WXComponent *subcomponent in _subcomponents) {
+    NSArray * subcomponents = [_subcomponents copy];
+    for (WXComponent *subcomponent in subcomponents) {
         [subcomponent _calculateFrameWithSuperAbsolutePosition:newAbsolutePosition gatherDirtyComponents:dirtyComponents];
     }
 }
@@ -244,7 +246,7 @@ do {\
     return [WXConvert WXPixelType:value scaleFactor:self.weexInstance.pixelScaleFactor];
 }
 
-- (void)_fillCSSNode:(NSDictionary *)styles;
+- (void)_fillCSSNode:(NSDictionary *)styles
 {
     // flex
     WX_STYLE_FILL_CSS_NODE(flex, flex, CGFloat)
@@ -408,5 +410,4 @@ static css_dim_t cssNodeMeasure(void *context, float width, css_measure_mode_t w
     
     return (css_dim_t){resultSize.width, resultSize.height};
 }
-
 @end

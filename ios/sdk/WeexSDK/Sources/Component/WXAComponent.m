@@ -23,6 +23,8 @@
 #import "WXLog.h"
 #import "WXComponent+Events.h"
 #import "WXURLRewriteProtocol.h"
+#import "WXSDKEngine.h"
+#import "WXComponent_internal.h"
 
 @interface WXAComponent()
 
@@ -66,7 +68,7 @@
     }
     
     if (_href && [_href length] > 0) {
-        NSMutableString *newURL = [_href mutableCopy];
+        NSString *newURL = [_href copy];
         WX_REWRITE_URL(_href, WXResourceTypeLink, self.weexInstance)
         if (!newURL) {
             return;

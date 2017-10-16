@@ -133,7 +133,6 @@ CGFloat WXFloorPixelValue(CGFloat value)
     return floor(value * scale) / scale;
 }
 
-static BOOL WXNotStat;
 @implementation WXUtility
 
 + (void)performBlock:(void (^)())block onThread:(NSThread *)thread
@@ -171,6 +170,7 @@ static BOOL WXNotStat;
     
     NSMutableDictionary *data = [NSMutableDictionary dictionaryWithDictionary:@{
                                     @"platform":platform,
+                                    @"osName":platform,//osName is eaqual to platorm name in native
                                     @"osVersion":sysVersion,
                                     @"weexVersion":weexVersion,
                                     @"deviceModel":machine,
@@ -326,7 +326,12 @@ static BOOL WXNotStat;
 }
 
 + (BOOL)isBlankString:(NSString *)string {
+    
     if (string == nil || string == NULL || [string isKindOfClass:[NSNull class]]) {
+        return true;
+    }
+    if (![string isKindOfClass:[NSString class]]) {
+        WXLogError(@"%@ is not a string", string);
         return true;
     }
     if ([[string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] length] == 0) {
@@ -655,6 +660,9 @@ static BOOL WXNotStat;
 
 + (CGSize)portraitScreenSize
 {
+    if ([[UIDevice currentDevice].model isEqualToString:@"iPad"]) {
+        return [UIScreen mainScreen].bounds.size;
+    }
     static CGSize portraitScreenSize;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -668,6 +676,9 @@ static BOOL WXNotStat;
 
 + (CGFloat)defaultPixelScaleFactor
 {
+    if ([[UIDevice currentDevice].model isEqualToString:@"iPad"]) {
+        return [self portraitScreenSize].width / WXDefaultScreenWidth;
+    }
     static CGFloat defaultScaleFactor;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -738,14 +749,6 @@ static BOOL WXNotStat;
 + (void)delete:(NSString *)service {
     NSMutableDictionary *keychainQuery = [self getKeychainQuery:service];
     SecItemDelete((CFDictionaryRef)keychainQuery);
-}
-
-+ (void)setNotStat:(BOOL)notStat {
-    WXNotStat = YES;
-}
-
-+ (BOOL)notStat {
-    return WXNotStat;
 }
 
 + (NSURL *)urlByDeletingParameters:(NSURL *)url
@@ -861,10 +864,10 @@ BOOL WXFloatGreaterThanWithPrecision(CGFloat a, CGFloat b ,double precision){
 
 + (NSString *_Nullable)returnKeyType:(UIReturnKeyType)type
 {
-    NSString *typeStr = @"defalut";
+    NSString *typeStr = @"default";
     switch (type) {
         case UIReturnKeyDefault:
-            typeStr = @"defalut";
+            typeStr = @"default";
             break;
         case UIReturnKeyGo:
             typeStr = @"go";
@@ -902,6 +905,28 @@ BOOL WXFloatGreaterThanWithPrecision(CGFloat a, CGFloat b ,double precision){
     }
     [custormMonitorDict setObject:value forKey:key];
     instance.userInfo[WXCUSTOMMONITORINFO] = custormMonitorDict;
+}
+
++ (NSDictionary *_Nonnull)dataToBase64Dict:(NSData *_Nullable)data
+{
+    NSMutableDictionary *dataDict = [NSMutableDictionary new];
+    if(data){
+        NSString *base64Encoded = [data base64EncodedStringWithOptions:0];
+        [dataDict setObject:@"binary" forKey:@"@type"];
+        [dataDict setObject:base64Encoded forKey:@"base64"];
+    }
+    
+    return dataDict;
+}
+
++ (NSData *_Nonnull)base64DictToData:(NSDictionary *_Nullable)base64Dict
+{
+    if([@"binary" isEqualToString:base64Dict[@"@type"]]){
+        NSString *base64 = base64Dict[@"base64"];
+        NSData *sendData = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
+        return sendData;
+    }
+    return nil;
 }
 @end
 

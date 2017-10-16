@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
 
   s.name         = "WeexSDK"
 
-  s.version      = "0.13.0"
+  s.version      = "0.16.1"
 
   s.summary      = "WeexSDK Source ."
 
@@ -38,9 +38,7 @@ Pod::Spec.new do |s|
 
   s.xcconfig = { "OTHER_LINK_FLAG" => '$(inherited) -ObjC'}
 
-  s.frameworks = 'CoreMedia','MediaPlayer','AVFoundation','AVKit','JavaScriptCore', 'GLKit'
-
-  s.dependency 'SocketRocket'
+  s.frameworks = 'CoreMedia','MediaPlayer','AVFoundation','AVKit','JavaScriptCore', 'GLKit', 'OpenGLES', 'CoreText', 'QuartzCore', 'CoreGraphics'
   s.libraries = "stdc++"
 
 end
